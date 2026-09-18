@@ -20,10 +20,14 @@ const prompts = [
 ];
 const statusLabels: Record<string, string> = { generating: '正在编写应用', validating: '正在检查代码', previewing: '正在运行验证', repairing: '正在自动修复', ready: '应用已就绪', failed: '生成未完成', cancelled: '已取消' };
 
+class RequestError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string) { super(message); }
+}
+
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : payload.error?.message || `请求失败（${response.status}）`);
+  if (!response.ok) throw new RequestError(typeof payload.error === 'string' ? payload.error : payload.error?.message || `请求失败（${response.status}）`, response.status, typeof payload.code === 'string' ? payload.code : undefined);
   return payload as T;
 }
 function formatDate(date: string) {
@@ -55,7 +59,13 @@ export default function Workspace() {
   const [fullscreen, setFullscreen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [storageConflict, setStorageConflict] = useState(false);
+  const [previewReloadError, setPreviewReloadError] = useState<string | null>(null);
+  const [reloadingPreview, setReloadingPreview] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const previewEpoch = useRef(0);
+  const storageBlocked = useRef(false);
+  const reloadInFlight = useRef(false);
   const projectRef = useRef<Project | null>(null);
   const bootRequest = useRef<Promise<[AppConfig, { projects: ProjectSummary[] }]> | null>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -76,6 +86,12 @@ export default function Workspace() {
   const selectProject = useCallback(async (id: string) => {
     const sequence = ++loadSequence.current;
     selectedIdRef.current = id;
+    setRefreshKey(++previewEpoch.current);
+    storageBlocked.current = true;
+    reloadInFlight.current = false;
+    setStorageConflict(false);
+    setPreviewReloadError(null);
+    setReloadingPreview(false);
     projectRef.current = null;
     setProject(null);
     setProjectLoading(true);
@@ -84,6 +100,7 @@ export default function Workspace() {
     setPendingRun(null);
     setError(null);
     setSaveError(false);
+    setSaving(false);
     setOperation(false);
     setPrompt('');
     setMobilePanel('chat');
@@ -92,6 +109,7 @@ export default function Workspace() {
       const data = await jsonRequest<{ project: Project }>(`/api/projects/${id}`);
       if (sequence !== loadSequence.current) return;
       updateProject(data.project);
+      storageBlocked.current = false;
       localStorage.setItem('atoms:last-project', id);
     } catch (err) { if (sequence === loadSequence.current) setError(errorText(err)); }
     finally { if (sequence === loadSequence.current) setProjectLoading(false); }
@@ -125,7 +143,7 @@ export default function Workspace() {
 
   const run = project ? activeRun(project) : undefined;
   const livePendingRun = pendingRun?.projectId === project?.id ? pendingRun : null;
-  const busy = operation || !!run || !!livePendingRun;
+  const busy = operation || !!run || !!livePendingRun || reloadingPreview;
   const candidate = run?.candidateVersionId ? project?.versions.find(v => v.id === run.candidateVersionId && v.status === 'candidate') : undefined;
   const shownVersion = candidate || project?.versions.find(v => v.id === (selectedVersionId || project.currentVersionId)) || null;
   const isHistorical = !!shownVersion && !candidate && shownVersion.id !== project?.currentVersionId;
@@ -153,6 +171,14 @@ export default function Workspace() {
       const data = await jsonRequest<{ project: Project }>('/api/projects', { method: 'POST', body: JSON.stringify({ title: '未命名应用' }) });
       ++loadSequence.current;
       selectedIdRef.current = data.project.id;
+      setRefreshKey(++previewEpoch.current);
+      storageBlocked.current = false;
+      reloadInFlight.current = false;
+      setStorageConflict(false);
+      setPreviewReloadError(null);
+      setReloadingPreview(false);
+      setSaveError(false);
+      setSaving(false);
       updateProject(data.project);
       setSelectedVersionId(null);
       setPrompt('');
@@ -264,8 +290,14 @@ export default function Workspace() {
   function saveState(key: string, value: JsonValue): Promise<void> {
     const id = project?.id;
     const versionId = shownVersion?.id;
+    // The callback belongs to this mounted preview. A refresh or conflict
+    // invalidates it immediately, including writes already waiting in the queue.
+    const epoch = refreshKey;
+    const canSave = () => !storageBlocked.current && epoch === previewEpoch.current;
+    if (!canSave()) return Promise.reject(new Error('预览数据已过期，请先载入最新数据，再重新操作。'));
     const save = stateQueue.current.catch(() => {}).then(async () => {
       const current = projectRef.current;
+      if (!canSave()) throw new Error('预览数据已过期，请先载入最新数据，再重新操作。');
       if (!current || current.id !== id || current.currentVersionId !== versionId || activeRun(current)) throw new Error('应用版本已变更，请在当前版本中重试。');
       setSaving(true);
       try {
@@ -273,19 +305,61 @@ export default function Workspace() {
           method: 'POST', body: JSON.stringify({ versionId, expectedDataRevision: current.dataRevision, key, value }),
         });
         const latest = projectRef.current;
-        if (latest?.id === id) {
+        if (latest?.id === id && epoch === previewEpoch.current) {
           const next = { ...latest, dataRevision: data.dataRevision, appState: { ...latest.appState, [key]: value } };
           projectRef.current = next;
           setProject(next);
           setSaveError(false);
         }
       } catch (err) {
-        if (selectedIdRef.current === id) { setSaveError(true); setError(`应用数据未保存：${errorText(err)}`); }
+        if (selectedIdRef.current === id && epoch === previewEpoch.current) {
+          setSaveError(true);
+          if (err instanceof RequestError && (err.status === 409 || ['STALE_DATA', 'REVISION_CONFLICT', 'PROJECT_BUSY'].includes(err.code || ''))) {
+            storageBlocked.current = true;
+            ++previewEpoch.current;
+            setStorageConflict(true);
+          } else setError(`应用数据未保存：${errorText(err)}`);
+        }
         throw err;
       } finally { if (selectedIdRef.current === id) setSaving(false); }
     });
     stateQueue.current = save;
     return save;
+  }
+
+  async function reloadPreview() {
+    const id = projectRef.current?.id;
+    if (!id || busy || reloadInFlight.current) return;
+    const sequence = ++loadSequence.current;
+    const epoch = ++previewEpoch.current;
+    storageBlocked.current = true;
+    reloadInFlight.current = true;
+    setReloadingPreview(true);
+    setPreviewReloadError(null);
+    try {
+      // An in-flight save may still commit. Read only after it settles, while
+      // rejecting queued writes from the obsolete iframe instead of replaying them.
+      await stateQueue.current.catch(() => {});
+      if (sequence !== loadSequence.current || selectedIdRef.current !== id) return;
+      const data = await jsonRequest<{ project: Project }>(`/api/projects/${id}`);
+      if (sequence !== loadSequence.current || selectedIdRef.current !== id) return;
+      updateProject(data.project);
+      setSelectedVersionId(null);
+      setRefreshKey(epoch);
+      setStorageConflict(false);
+      setSaveError(false);
+      setError(null);
+      storageBlocked.current = false;
+    } catch (err) {
+      if (sequence === loadSequence.current && selectedIdRef.current === id) {
+        setPreviewReloadError(`载入失败：${errorText(err)}。请再次尝试载入最新数据。`);
+      }
+    } finally {
+      if (sequence === loadSequence.current && selectedIdRef.current === id) {
+        reloadInFlight.current = false;
+        setReloadingPreview(false);
+      }
+    }
   }
 
   async function restoreVersion(version: Version) {
@@ -369,7 +443,7 @@ export default function Workspace() {
             </div> : <div className="messages">{project.messages.map(message => <article key={message.id} className={`message ${message.role}`}>
               <div className="message-label">{message.role === 'assistant' ? <><span className="assistant-avatar"><AtomMark small /></span><strong>Atoms</strong><span>构建助手</span></> : <><span className="user-avatar">你</span><strong>你</strong></>}<time>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div><div className="message-content">{message.content}</div>
             </article>)}</div>}
-            {busy && <div className="run-progress"><span className="progress-orb"><LoaderCircle size={16} className="spin" /></span><div><strong>{statusText || statusLabels[run?.status || livePendingRun?.status || 'generating']}</strong><p>{run?.attempt && run.attempt > 1 ? `第 ${run.attempt} 次构建 · 自动检查并修复` : '编写代码，检查运行结果，保存可用版本'}</p></div>{(run || livePendingRun) && <button onClick={() => void cancelRun()} title="取消生成" aria-label="取消生成"><Square size={12} /></button>}</div>}
+            {busy && !reloadingPreview && <div className="run-progress"><span className="progress-orb"><LoaderCircle size={16} className="spin" /></span><div><strong>{statusText || statusLabels[run?.status || livePendingRun?.status || 'generating']}</strong><p>{run?.attempt && run.attempt > 1 ? `第 ${run.attempt} 次构建 · 自动检查并修复` : '编写代码，检查运行结果，保存可用版本'}</p></div>{(run || livePendingRun) && <button onClick={() => void cancelRun()} title="取消生成" aria-label="取消生成"><Square size={12} /></button>}</div>}
             {error && <div className="error-notice" role="alert"><TriangleAlert size={16} /><div><strong>需要留意一下</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="关闭错误提示"><X size={14} /></button></div>}
             {!config?.modelConfigured && config && <div className="config-notice"><span><Terminal size={15} /></span><div><strong>连接 AI，开启你的第一次构建</strong><p>模型尚未配置。连接后，即可生成和修改应用。</p><button onClick={() => setSettingsOpen(true)}>查看配置方式 <ArrowRight size={12} /></button></div></div>}
             <div ref={chatBottom} />
@@ -382,14 +456,15 @@ export default function Workspace() {
         </section>
 
         <section className="output-panel" aria-label="应用工作区"><div className="output-toolbar"><div className="output-tabs" role="tablist" aria-label="应用视图"><button role="tab" aria-selected={panel === 'preview'} className={panel === 'preview' ? 'active' : ''} onClick={() => setPanel('preview')}><Monitor size={15} /><span>预览</span></button><button role="tab" aria-selected={panel === 'code'} className={panel === 'code' ? 'active' : ''} onClick={() => setPanel('code')}><Code2 size={15} /><span>源码</span></button><button role="tab" aria-selected={panel === 'versions'} className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')}><History size={15} /><span>版本</span>{readyVersions.length > 0 && <span className="tab-count">{readyVersions.length}</span>}</button></div><div className="output-actions">{shownVersion && <button onClick={downloadSource} title="下载当前版本源码" aria-label="下载当前版本源码"><ArrowDownToLine size={16} /></button>}<button onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? '退出全屏' : '展开预览'} aria-label={fullscreen ? '退出全屏' : '展开预览'}>{fullscreen ? <X size={16} /> : <Maximize2 size={15} />}</button></div></div>
-          <div className="preview-area" style={panel === 'preview' ? undefined : { display: 'none' }}><div className="preview-browserbar"><div className="browser-dots"><i /><i /><i /></div><span className="preview-address"><ShieldCheck size={12} />{shownVersion ? `${project?.title} / v${shownVersion.number}` : '你的应用将在这里诞生'}</span><div className="device-switch"><button className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')} aria-label="桌面预览"><Monitor size={13} /></button><button className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')} aria-label="手机预览"><Smartphone size={13} /></button><span /><button onClick={() => setRefreshKey(value => value + 1)} disabled={!shownVersion || busy} aria-label="重新加载预览"><RefreshCw size={13} /></button></div></div>
+          {(storageConflict || previewReloadError) && <div className="storage-conflict-banner" role="alert"><TriangleAlert size={18} /><div><strong>{storageConflict ? '数据已在其他页面更新' : '暂时无法载入最新数据'}</strong><p>{storageConflict ? '本次操作未保存。载入最新数据后，请重新操作。' : '当前预览已暂停保存，云端已保存的数据不受影响。'}</p>{previewReloadError && <p>{previewReloadError}</p>}</div><button onClick={() => void reloadPreview()} disabled={busy}>{reloadingPreview ? <LoaderCircle size={14} className="spin" /> : <RefreshCw size={14} />}载入最新数据</button></div>}
+          <div className="preview-area" style={panel === 'preview' ? undefined : { display: 'none' }}><div className="preview-browserbar"><div className="browser-dots"><i /><i /><i /></div><span className="preview-address"><ShieldCheck size={12} />{shownVersion ? `${project?.title} / v${shownVersion.number}` : '你的应用将在这里诞生'}</span><div className="device-switch"><button className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')} aria-label="桌面预览"><Monitor size={13} /></button><button className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')} aria-label="手机预览"><Smartphone size={13} /></button><span /><button onClick={() => void reloadPreview()} disabled={!shownVersion || busy} aria-label="重新加载预览"><RefreshCw size={13} /></button></div></div>
             {isHistorical && <div className="historical-banner"><History size={14} /><span>正在查看 v{shownVersion?.number} · 历史版本只读</span><button disabled={busy} onClick={() => shownVersion && void restoreVersion(shownVersion)}>恢复此版本 <ArrowRight size={12} /></button></div>}
             <div className={`preview-stage${shownVersion ? ' has-app' : ''}${device === 'mobile' ? ' device-mobile' : ''}`}>
-              {shownVersion && project ? <div className="preview-frame-shell"><PreviewFrame key={`${project.id}:${shownVersion.id}:${candidate ? 'candidate' : 'published'}:${refreshKey}`} html={shownVersion.html} projectId={project.id} versionId={shownVersion.id} initialState={candidate && run ? run.stagedState : project.appState} mode={candidate ? 'candidate' : 'published'} readOnly={candidate ? false : isHistorical || busy} onValidated={validateCandidate} onStore={saveState} onRuntimeError={message => setError(`应用运行异常：${message}`)} />{busy && <div className="preview-blocker"><div><LoaderCircle size={15} className="spin" /><span>{candidate ? '正在检查应用是否正常运行' : '正在构建新版本，当前预览暂时只读'}</span></div></div>}{isHistorical && <div className="history-readonly-overlay" aria-label="历史版本只读" />}</div> : <div className="empty-preview"><div className="canvas-decoration"><span className="floating-tile tile-top"><Code2 size={18} /></span><span className="floating-tile tile-bottom"><Sparkles size={17} /></span><div className="canvas-window"><div><i /><i /><i /></div><span className="canvas-line long" /><span className="canvas-line short" /><section><b /><b /><b /></section><span className="canvas-line medium" /></div></div><h2>让想法，在这里成形</h2><p>在左侧描述你想做的应用<br />预览会随着你的想法一起更新</p><span className="empty-preview-tag"><span /> READY WHEN YOU ARE</span></div>}
+              {shownVersion && project ? <div className="preview-frame-shell"><PreviewFrame key={`${project.id}:${shownVersion.id}:${candidate ? 'candidate' : 'published'}:${refreshKey}`} html={shownVersion.html} projectId={project.id} versionId={shownVersion.id} initialState={candidate && run ? run.stagedState : project.appState} mode={candidate ? 'candidate' : 'published'} readOnly={candidate ? false : isHistorical || busy || storageConflict || !!previewReloadError} onValidated={validateCandidate} onStore={saveState} onRuntimeError={message => { if (!storageBlocked.current) setError(`应用运行异常：${message}`); }} />{(busy || storageConflict || previewReloadError) && <div className="preview-blocker"><div>{busy ? <LoaderCircle size={15} className="spin" /> : <TriangleAlert size={15} />}<span>{reloadingPreview ? '正在载入最新数据…' : storageConflict || previewReloadError ? '请先载入最新数据，再继续操作' : candidate ? '正在检查应用是否正常运行' : '正在构建新版本，当前预览暂时只读'}</span></div></div>}{isHistorical && <div className="history-readonly-overlay" aria-label="历史版本只读" />}</div> : <div className="empty-preview"><div className="canvas-decoration"><span className="floating-tile tile-top"><Code2 size={18} /></span><span className="floating-tile tile-bottom"><Sparkles size={17} /></span><div className="canvas-window"><div><i /><i /><i /></div><span className="canvas-line long" /><span className="canvas-line short" /><section><b /><b /><b /></section><span className="canvas-line medium" /></div></div><h2>让想法，在这里成形</h2><p>在左侧描述你想做的应用<br />预览会随着你的想法一起更新</p><span className="empty-preview-tag"><span /> READY WHEN YOU ARE</span></div>}
             </div></div>
           {panel === 'code' && <div className="source-panel">{shownVersion ? <><div className="source-toolbar"><span><FileCode2 size={14} /> index.html <small>v{shownVersion.number}</small></span><button onClick={() => void copySource()}>{copied ? <Check size={13} /> : <Copy size={13} />}{copied ? '已复制' : '复制代码'}</button></div><pre className="source-code"><code>{shownVersion.html.split('\n').map((line, index) => <span key={index} className="code-line"><span className="line-number">{index + 1}</span><span>{line || ' '}</span></span>)}</code></pre></> : <div className="tab-empty"><Code2 size={29} /><h3>每一行代码，都属于你</h3><p>生成应用后，可在这里查看、复制和下载完整源码。</p></div>}</div>}
           {panel === 'versions' && <div className="versions-panel"><div className="versions-intro"><span className="version-header-icon"><History size={20} /></span><div><h2>每一步，都有迹可循</h2><p>查看历史构建，随时恢复一个可用版本。</p></div></div>{project?.versions.length ? <div className="version-list">{[...project.versions].reverse().map(version => <article className={`version-card${version.id === project.currentVersionId ? ' current' : ''}`} key={version.id}><div className="version-timeline-dot" /><div className="version-card-header"><strong>版本 {version.number}</strong>{version.id === project.currentVersionId ? <span className="version-badge current-badge">当前版本</span> : version.status === 'failed' ? <span className="version-badge failed-badge">检查未通过</span> : version.status === 'candidate' ? <span className="version-badge">验证中</span> : <span className="version-badge">可恢复</span>}<time>{formatDate(version.createdAt)}</time></div><h3>{version.title}</h3><p>{version.summary}</p><div className="version-card-footer"><span>{version.source === 'restore' ? <><History size={12} /> 版本恢复</> : version.source === 'fixture' ? <><Code2 size={12} /> 开发样例 · 非 AI</> : <><Sparkles size={12} /> AI 构建</>}</span><div><button disabled={version.status === 'candidate' || busy} onClick={() => { setSelectedVersionId(version.id); setPanel('preview'); }}>查看</button>{version.status === 'ready' && version.id !== project.currentVersionId && <button className="restore-button" disabled={busy} onClick={() => void restoreVersion(version)}><History size={12} /> 恢复</button>}</div></div>{version.validationErrors.length > 0 && <details className="validation-errors"><summary>查看检查详情</summary><p>{version.validationErrors.join('\n')}</p></details>}</article>)}</div> : <div className="tab-empty"><Layers3 size={29} /><h3>好作品来自不断迭代</h3><p>每次构建成功后，会在这里留下一个新版本。</p></div>}</div>}
-          <footer className="preview-statusbar"><span><span className={`status-dot${saveError ? ' status-error' : busy ? ' status-working' : ''}`} />{saveError ? '数据保存失败' : saving ? '正在保存应用数据…' : candidate ? '验证候选版本中' : shownVersion ? isHistorical ? '历史版本 · 只读' : '应用已就绪' : '等待你的第一个想法'}</span><span className="storage-status"><Database size={11} />{config?.storageMode === 'supabase' ? '云端存储' : '本地持久存储'}{shownVersion && <><span className="statusbar-divider" />v{shownVersion.number}</>}</span></footer>
+          <footer className="preview-statusbar"><span><span className={`status-dot${saveError ? ' status-error' : busy ? ' status-working' : ''}`} />{reloadingPreview ? '正在载入最新数据…' : storageConflict || previewReloadError ? '等待载入最新数据' : saveError ? '数据保存失败' : saving ? '正在保存应用数据…' : candidate ? '验证候选版本中' : shownVersion ? isHistorical ? '历史版本 · 只读' : '应用已就绪' : '等待你的第一个想法'}</span><span className="storage-status"><Database size={11} />{config?.storageMode === 'supabase' ? '云端存储' : '本地持久存储'}{shownVersion && <><span className="statusbar-divider" />v{shownVersion.number}</>}</span></footer>
         </section>
       </div>
     </section>

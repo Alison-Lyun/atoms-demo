@@ -8,17 +8,24 @@
   "dataPolicy": "Only artificial acceptance projects. No cookies, session storage state, credentials or traces are included. Absolute workspace paths replaced with <workspace>.",
   "platform": {
     "result": "passed",
-    "passed": 3,
-    "durationSeconds": 230.67,
+    "passed": 4,
+    "durationSeconds": 226.21,
     "report": "platform-playwright-results.json",
     "source": "tests/preview.spec.ts",
-    "environment": "localhost app with Supabase; development fixtures explicitly enabled",
+    "environment": "localhost app with local storage; development fixtures explicitly enabled",
     "checks": [
       "fixture generation and publication",
       "published Todo persistence after reload",
       "project isolation",
       "candidate storage isolation until successful validation",
-      "runtime rejection fails candidate without leaking staged state"
+      "runtime rejection fails candidate without leaking staged state",
+      "six concurrent bridge calls serialize into six successful saves",
+      "two-page stale write gets 409 without overwriting saved data",
+      "old preview cannot keep writing after conflict",
+      "mobile and fullscreen recovery action remains visible",
+      "failed recovery GET retains retry action",
+      "load latest data then explicitly resubmit without replaying rejected value",
+      "normal preview reload fetches latest project and permits continued saves"
     ]
   },
   "productionInitial": {

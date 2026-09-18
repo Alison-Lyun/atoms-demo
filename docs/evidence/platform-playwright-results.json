@@ -23,7 +23,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "<workspace>/work/platform-final-results",
+        "outputDir": "<workspace>/work/conflict-recovery-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -48,7 +48,7 @@
       [
         "json",
         {
-          "outputFile": "../../work/platform-final-results/results.json"
+          "outputFile": "../../work/conflict-recovery-results/results.json"
         }
       ]
     ],
@@ -64,7 +64,7 @@
     "workers": 1,
     "webServer": {
       "command": "npm run dev",
-      "url": "http://127.0.0.1:3000",
+      "url": "http://127.0.0.1:3100",
       "reuseExistingServer": true,
       "timeout": 120000,
       "env": {
@@ -103,12 +103,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 88900,
+                      "duration": 59474,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-09-18T15:02:30.012Z",
+                      "startTime": "2026-09-18T15:38:20.905Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -137,12 +137,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 80598,
+                      "duration": 41441,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-09-18T15:04:03.193Z",
+                      "startTime": "2026-09-18T15:39:25.911Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -171,12 +171,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 54490,
+                      "duration": 30596,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-09-18T15:05:23.814Z",
+                      "startTime": "2026-09-18T15:40:07.371Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -188,6 +188,40 @@
               "file": "preview.spec.ts",
               "line": 97,
               "column": 7
+            },
+            {
+              "title": "serializes saves and recovers a stale second page without replaying its old data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 86596,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-18T15:40:37.996Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f7191c1356a09079afd8-a90d11afd29f82bc8c8b",
+              "file": "preview.spec.ts",
+              "line": 117,
+              "column": 7
             }
           ]
         }
@@ -196,9 +230,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-09-18T15:02:28.595Z",
-    "duration": 230669.84399999998,
-    "expected": 3,
+    "startTime": "2026-09-18T15:38:19.072Z",
+    "duration": 226214.837,
+    "expected": 4,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0
