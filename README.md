@@ -6,7 +6,7 @@
 
 ## 当前验证状态
 
-截至 2026-09-18，**79 项单元与集成测试、类型检查、生产构建通过**。真实模型待办应用已完成首次生成、新增事项、云端保存、刷新恢复、同项目增加搜索、搜索交互及代码版本恢复；两次生成均无需自动修复。Supabase 已真实执行迁移并验证匿名会话隔离。更多应用类型与生产环境验收见下方记录。
+截至 2026-09-18，**82 项单元与集成测试、类型检查、生产构建及 3 项平台浏览器测试通过**。真实模型已生成待办、计算器和计时器；已验证同一计算器连续两次修改、无效输入保护、刷新保存、源码导出与线上代码恢复。Supabase 的真实并发、原子写入和匿名会话隔离全部通过。详细范围和未覆盖项见 [验收记录](docs/acceptance.md)。
 
 - 在线工作台：https://atoms-demo-indol.vercel.app
 - 源码：https://github.com/Alison-Lyun/atoms-demo
@@ -14,6 +14,8 @@
 工作台按匿名浏览器会话保存项目；首次打开看到空工作区属于正常行为。
 
 开发样例明确标为 fixture，只用于验证宿主预览与数据链路。完整记录和待验收步骤见 [docs/acceptance.md](docs/acceptance.md)。
+
+![真实模型生成的待办应用，支持同项目搜索追改](docs/images/todo-search.png)
 
 ## 本地启动
 
@@ -110,10 +112,21 @@ npm run build
 
 ```bash
 npx playwright install chrome
-npm run test:e2e
+RUN_PLATFORM_TESTS=true npm run test:e2e
 ```
 
-Playwright 配置会启动启用开发样例的本地服务器。如果已有服务器占用测试地址，应确保它以 `ENABLE_DEV_FIXTURES=true` 启动。当前 E2E 覆盖开发样例，不会调用付费模型；其验证状态单独记录。
+Playwright 配置会启动启用开发样例的本地服务器。如果已有服务器占用测试地址，应确保它以 `ENABLE_DEV_FIXTURES=true` 启动。这 3 项测试覆盖真实浏览器中的发布、数据隔离、刷新和失败回滚，不调用付费模型，已全部通过。
+
+真实模型测试需要显式开启，会消耗所配置服务的额度：
+
+```bash
+RUN_LIVE_MODEL=true npx playwright test tests/real-model.spec.ts
+RUN_LIVE_MODEL=true RUN_PRODUCTION_ACCEPTANCE=true \
+  PLAYWRIGHT_BASE_URL=https://your-deployment.example \
+  npx playwright test tests/production-model.spec.ts
+```
+
+第一条验证待办、搜索追改及版本恢复；第二条验证计算器、连续两次追改和计时器，目标服务必须禁用开发样例。将占位域名替换为自己的部署地址。报告默认保存在被 Git 忽略的 `test-results/`；匿名会话文件是访问凭据，不应分享。
 
 [CI](.github/workflows/ci.yml) 在推送和 PR 上运行类型检查、单测及构建。浏览器测试暂设为手动工作流选项，执行失败会使该任务失败。
 
@@ -126,4 +139,4 @@ Playwright 配置会启动启用开发样例的本地服务器。如果已有服
 - 匿名会话没有账户找回或跨设备同步入口。多人协作、公开分享和项目导入尚未实现。
 - 当前限流按项目计数，新建项目可以绕过；自动修复还会增加模型调用。公网开放前应增加账户/IP 限流、整体费用上限和访问控制，并配置 Supabase 匿名注册的防滥用措施。
 
-具体调用关系和状态规则见 [docs/architecture.md](docs/architecture.md)。
+设计入口见 [DESIGN.md](DESIGN.md)，详细调用关系和状态规则见 [docs/architecture.md](docs/architecture.md)，现场展示可参照 [2–3 分钟演示脚本](docs/demo-script.md)。

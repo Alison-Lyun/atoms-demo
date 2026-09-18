@@ -1,0 +1,82 @@
+{
+  "baseURL": "https://atoms-demo-indol.vercel.app",
+  "resumedProjectId": "022c5102-da8f-4c76-9afc-98dc5942977e",
+  "checks": [
+    "empty-input-inline-error-without-history-write",
+    "existing-three-real-generated-versions",
+    "reuse-history-result",
+    "keyboard-Enter-produces-one-history-record",
+    "division-by-zero-remains-protected-after-two-edits",
+    "visible-source-matches-current-version",
+    "HTML-export-byte-matches-current-version",
+    "production-restore-restores-original-code",
+    "production-restore-retains-current-history",
+    "timer-starts-and-counts-down",
+    "timer-pauses",
+    "timer-resets-to-10",
+    "timer-completes-once",
+    "timer-completion-count-survives-production-reload"
+  ],
+  "projects": [
+    {
+      "id": "022c5102-da8f-4c76-9afc-98dc5942977e",
+      "kind": "calculator",
+      "currentVersionId": "ce195e0e-bb51-4f55-8bd2-6e2ccc9c0551"
+    },
+    {
+      "id": "152253db-6a03-4858-8122-d7d1bb2125a0",
+      "kind": "timer",
+      "currentVersionId": "57077e1a-c211-411f-9808-a24d2aac76e1"
+    }
+  ],
+  "runs": [
+    {
+      "id": "33ff50fd-bcf9-4906-b7e9-6fac9f6fff65",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "inputTokens": 13626,
+      "outputTokens": 5476
+    },
+    {
+      "id": "eb5169b6-1f94-49d6-b678-f3d600b2bd62",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "inputTokens": 19323,
+      "outputTokens": 6117
+    },
+    {
+      "id": "4bd11382-572d-4fb2-baaf-eaa460e6f918",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "inputTokens": 21174,
+      "outputTokens": 6833
+    },
+    {
+      "id": "9bb09d5e-8c8d-4f48-acd7-e95778b4fb06",
+      "source": "restore",
+      "status": "ready",
+      "attempt": 0
+    },
+    {
+      "id": "a2aaf478-79dd-4270-8320-7261327d3b2f",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "error": null,
+      "inputTokens": 11470,
+      "outputTokens": 3277
+    }
+  ],
+  "priorEvidencePath": "<workspace>/work/production-model-results/production-model-productio-a5a30--persistent-10-second-timer/acceptance-evidence.json",
+  "previouslyCompletedChecks": [
+    "calculator-2-plus-3-equals-5",
+    "division-by-zero-shows-error-without-history-write",
+    "calculator-history-survives-reload",
+    "first-edit-preserves-history-before-user-clears",
+    "clear-history-persists",
+    "calculator-still-computes-after-first-edit"
+  ]
+}

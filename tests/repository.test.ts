@@ -114,7 +114,7 @@ describe('Supabase repository compare-and-swap adapter', () => {
     const client = {
       async rpc(name: string, args: { p_project?: Project; p_expected_revision?: number }) {
         if (name === 'load_project_snapshot') return { data: structuredClone(stored), error: null };
-        if (stored && args.p_expected_revision !== stored.revision) return { data: null, error: { code: '40001' } };
+        if (stored && args.p_expected_revision !== stored.revision) return { data: null, error: { code: 'PT409' } };
         stored = structuredClone(args.p_project!);
         return { data: null, error: null };
       },
@@ -129,6 +129,19 @@ describe('Supabase repository compare-and-swap adapter', () => {
     const rejected = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
     expect(rejected.reason).toMatchObject({ status: 409, code: 'REVISION_CONFLICT' });
     expect(await repository.getProject(project.id)).toMatchObject({ revision: 1, appState: { winner: 'a' } });
+  });
+
+  it.each(['PT409', '40001'])('surfaces %s as a terminal conflict without retrying the write', async code => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code, message: 'Revision conflict' } });
+    const repository = createSupabaseRepository({ rpc } as unknown as SupabaseClient);
+    await expect(repository.createProject('冲突')).rejects.toMatchObject({ status: 409, code: 'REVISION_CONFLICT' });
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not misclassify unrelated SQL exceptions as revision conflicts', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Unrelated database error' } });
+    await expect(createSupabaseRepository({ rpc } as unknown as SupabaseClient).createProject('错误'))
+      .rejects.toMatchObject({ status: 503, code: 'STORAGE_UNAVAILABLE' });
   });
 
   it('does not call the save RPC after a mutation throws', async () => {

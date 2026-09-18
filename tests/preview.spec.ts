@@ -3,7 +3,10 @@ import type { AppState, Project } from '../src/lib/types';
 
 // These tests exercise a clearly labelled development fixture. They do not
 // verify an AI provider, generated output quality, Supabase, or deployment.
-test.use({ baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000' });
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const local = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname);
+test.skip(process.env.RUN_PLATFORM_TESTS !== 'true' || !local, 'Development fixture tests require RUN_PLATFORM_TESTS=true and a localhost server.');
+test.use({ baseURL });
 
 async function loadFixture(page: Page): Promise<Project> {
   const button = page.getByRole('button', { name: /载入开发样例/ });

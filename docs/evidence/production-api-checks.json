@@ -1,0 +1,8 @@
+{
+  "bootstrap": 200,
+  "create": 201,
+  "fixture_disabled": 404,
+  "invalid_prompt": 400,
+  "foreign_origin": 403,
+  "cross_session": 404
+}

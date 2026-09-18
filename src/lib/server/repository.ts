@@ -117,7 +117,9 @@ export function createLocalRepository(ownerId: string, dataDir = process.env.LOC
 }
 
 function cloudError(error: { code?: string; message?: string }): RepositoryError {
-  if (error.code === '40001') return conflict();
+  // PT409 is a terminal CAS conflict. Keep 40001 compatibility during migration
+  // and for genuine PostgreSQL serialization failures; never retry a stale snapshot.
+  if (error.code === 'PT409' || error.code === '40001') return conflict();
   if (error.code === 'P0002' || error.code === '42501') return notFound();
   if (error.code === 'PGRST202' || error.code === '42P01') {
     return new RepositoryError('云数据库尚未初始化，请先执行 Supabase 迁移。', 503, 'STORAGE_NOT_INITIALIZED');

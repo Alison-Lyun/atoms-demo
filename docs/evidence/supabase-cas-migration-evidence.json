@@ -1,0 +1,36 @@
+{
+  "recordedAt": "2026-09-18T15:19:54.630150+00:00",
+  "project": "atoms-demo",
+  "migration": "supabase/migrations/202609180002_cas_conflict_http_409.sql",
+  "migrationSha256": "357aabdc8b93b53752813541d6e4cbfcd69095ea1e6babcd2d5d8232c9618744",
+  "scope": "CREATE OR REPLACE save_project_snapshot only; no table, RLS, signature, credentials or privilege changes",
+  "sqlEditorResult": "Success. No rows returned",
+  "catalogVerification": {
+    "terminalConflictInstalled": true,
+    "no40001InFunctionBody": true,
+    "securityDefiner": true,
+    "emptySearchPath": true,
+    "authenticatedCanExecute": true,
+    "anonCanExecute": false
+  },
+  "liveCasEvidence": "work/supabase-live-cas-evidence.json",
+  "beforeFixEvidence": "work/supabase-live-cas-before.json",
+  "postMigrationActivity": {
+    "queryFilter": "usename = 'authenticator' AND query LIKE '%save_project_snapshot%'",
+    "matchingRows": 0,
+    "backendsTerminated": 0,
+    "projectRestarted": false
+  },
+  "rootCause": {
+    "server": "PostgREST treats SQLSTATE 40001 as a retryable transaction failure; stale business revisions cannot succeed on replay",
+    "sdk": "Installed postgrest-js fetchWithRetry retries only GET/HEAD/OPTIONS for 503/520, not POST RPC",
+    "officialSources": [
+      "https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b",
+      "https://docs.postgrest.org/en/v13/references/errors.html"
+    ]
+  },
+  "localValidation": {
+    "repositoryUnitTests": 17,
+    "typecheck": "passed"
+  }
+}

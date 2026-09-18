@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-09-18T15:18:25.608Z",
+  "scope": "New temporary project only; two fresh anonymous users; publishable key only; no service-role credential",
+  "checks": {
+    "anonymous_sessions": {
+      "status": "passed",
+      "errorCodes": [
+        null,
+        null
+      ]
+    },
+    "owner_create_snapshot": {
+      "status": "passed",
+      "errorCode": null
+    },
+    "same_revision_concurrent_write": {
+      "status": "passed",
+      "successCount": 1,
+      "errorCodes": [
+        null,
+        "PT409"
+      ],
+      "httpStatuses": [
+        204,
+        409
+      ],
+      "elapsedMs": 1143
+    },
+    "winner_snapshot_is_atomic": {
+      "status": "passed",
+      "errorCode": null,
+      "revision": 1,
+      "dataRevision": 1,
+      "messagesMatchWinner": true,
+      "appStateMatchesWinner": true
+    },
+    "other_user_load_is_null": {
+      "status": "passed",
+      "errorCode": null,
+      "returnedNull": true
+    },
+    "other_user_write_rejected": {
+      "status": "passed",
+      "errorCode": "P0002"
+    },
+    "authenticated_direct_insert_denied": {
+      "status": "passed",
+      "errorCode": "42501"
+    },
+    "rejected_write_preserves_snapshot": {
+      "status": "passed",
+      "errorCode": null
+    }
+  },
+  "status": "passed",
+  "finishedAt": "2026-09-18T15:18:31.681Z"
+}

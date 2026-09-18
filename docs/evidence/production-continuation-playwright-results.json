@@ -1,0 +1,140 @@
+{
+  "config": {
+    "argv": [
+      "/usr/local/Cellar/node@22/22.22.2_2/bin/node",
+      "<workspace>/outputs/atoms-demo/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "../../work/playwright-resume.config.ts"
+    ],
+    "configFile": "<workspace>/work/playwright-resume.config.ts",
+    "rootDir": "<workspace>/work",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "<workspace>/work/production-resume-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "<workspace>/work",
+        "testIgnore": [],
+        "testMatch": [
+          "production-resume.spec.ts"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "<workspace>/work/production-resume-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "production-resume.spec.ts",
+      "file": "production-resume.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "production continuation: accessible reuse, Enter, source/export, restore, and one real timer generation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 480000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 154307,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "[production resume] restore project=022c5102-da8f-4c76-9afc-98dc5942977e status=ready attempt=0\n"
+                    },
+                    {
+                      "text": "[production resume] calculator reuse/Enter/error/source/export/restore checks passed; submitting the only remaining model call for timer\n"
+                    },
+                    {
+                      "text": "[production resume] generate project=152253db-6a03-4858-8122-d7d1bb2125a0 status=ready attempt=0\n"
+                    },
+                    {
+                      "text": "[production resume] all continuation checks passed\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-18T15:19:01.117Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "production-resume-evidence",
+                      "contentType": "application/json",
+                      "path": "<workspace>/work/production-resume-results/production-resume-producti-5fdc6-d-one-real-timer-generation/attachments/production-resume-evidence-3764ba95cefcf4f498c083f803bec9820ca8bd9c.json"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7585321b0f7ed9d45d1-852ccc5396738c8e2b5e",
+          "file": "production-resume.spec.ts",
+          "line": 36,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-18T15:18:59.951Z",
+    "duration": 162933.11,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

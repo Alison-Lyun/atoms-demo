@@ -151,7 +151,8 @@ begin
       raise exception 'Project not found' using errcode = 'P0002';
     end if;
     if existing_revision <> p_expected_revision then
-      raise exception 'Revision conflict' using errcode = '40001';
+      -- This is a deterministic CAS conflict, not a retryable serialization failure.
+      raise exception 'Revision conflict' using errcode = 'PT409';
     end if;
     if (p_project ->> 'createdAt')::timestamptz is distinct from existing_created_at then
       raise exception 'Project creation time is immutable' using errcode = '22023';

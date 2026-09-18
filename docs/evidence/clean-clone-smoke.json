@@ -1,0 +1,25 @@
+{
+  "home": {
+    "http": 200,
+    "titlePresent": true
+  },
+  "config": {
+    "modelConfigured": false,
+    "model": null,
+    "storageMode": "local",
+    "cloudConfigured": false,
+    "fixturesEnabled": false,
+    "limits": {
+      "maxRepairAttempts": 2,
+      "runTimeoutSeconds": 180,
+      "maxPromptLength": 4000,
+      "maxHtmlBytes": 150000,
+      "maxStateBytes": 65536,
+      "maxStateKeys": 100
+    }
+  },
+  "emptyProjectList": true,
+  "create": 201,
+  "readBack": true,
+  "secretsRequiredForStartup": false
+}

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       run_e2e:
-        description: Run the browser fixture checks (currently under repair)
+        description: Run the browser fixture checks
         required: false
         type: boolean
         default: false
@@ -46,6 +46,7 @@ jobs:
       CI: 'true'
       PLAYWRIGHT_CHANNEL: chrome
       ENABLE_DEV_FIXTURES: 'true'
+      RUN_PLATFORM_TESTS: 'true'
       STORAGE_MODE: local
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +65,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-failure-evidence
-          path: ../../work/playwright-results
+          path: test-results/platform
           if-no-files-found: ignore
           retention-days: 7

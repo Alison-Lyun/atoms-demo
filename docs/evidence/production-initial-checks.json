@@ -1,0 +1,57 @@
+{
+  "baseURL": "https://atoms-demo-indol.vercel.app",
+  "checks": [
+    "calculator-2-plus-3-equals-5",
+    "division-by-zero-shows-error-without-history-write",
+    "calculator-history-survives-reload",
+    "first-edit-preserves-history-before-user-clears",
+    "clear-history-persists",
+    "calculator-still-computes-after-first-edit"
+  ],
+  "projects": [
+    {
+      "id": "022c5102-da8f-4c76-9afc-98dc5942977e",
+      "kind": "calculator"
+    }
+  ],
+  "runs": [
+    {
+      "projectId": "022c5102-da8f-4c76-9afc-98dc5942977e",
+      "label": "calculator initial",
+      "id": "33ff50fd-bcf9-4906-b7e9-6fac9f6fff65",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "error": null,
+      "model": "claude-opus-4-8",
+      "inputTokens": 13626,
+      "outputTokens": 5476
+    },
+    {
+      "projectId": "022c5102-da8f-4c76-9afc-98dc5942977e",
+      "label": "calculator edit 1: clear history",
+      "id": "eb5169b6-1f94-49d6-b678-f3d600b2bd62",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "error": null,
+      "model": "claude-opus-4-8",
+      "inputTokens": 19323,
+      "outputTokens": 6117
+    },
+    {
+      "projectId": "022c5102-da8f-4c76-9afc-98dc5942977e",
+      "label": "calculator edit 2: reuse result and Enter",
+      "id": "4bd11382-572d-4fb2-baaf-eaa460e6f918",
+      "source": "generate",
+      "status": "ready",
+      "attempt": 0,
+      "error": null,
+      "model": "claude-opus-4-8",
+      "inputTokens": 21174,
+      "outputTokens": 6833
+    }
+  ],
+  "model": "claude-opus-4-8",
+  "error": "locator.click: Test ended.\nCall log:\n  - waiting for locator('[data-testid=\"app-preview\"]').contentFrame().getByRole('button', { name: '再次使用', exact: true }).last()\n"
+}

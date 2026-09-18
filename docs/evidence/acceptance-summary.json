@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-18",
+  "productionURL": "https://atoms-demo-indol.vercel.app",
+  "browser": "Real installed Google Chrome, Playwright, headless; independent anonymous application session",
+  "model": "claude-opus-4-8",
+  "storage": "Supabase",
+  "dataPolicy": "Only artificial acceptance projects. No cookies, session storage state, credentials or traces are included. Absolute workspace paths replaced with <workspace>.",
+  "platform": {
+    "result": "passed",
+    "passed": 3,
+    "durationSeconds": 230.67,
+    "report": "platform-playwright-results.json",
+    "source": "tests/preview.spec.ts",
+    "environment": "localhost app with Supabase; development fixtures explicitly enabled",
+    "checks": [
+      "fixture generation and publication",
+      "published Todo persistence after reload",
+      "project isolation",
+      "candidate storage isolation until successful validation",
+      "runtime rejection fails candidate without leaking staged state"
+    ]
+  },
+  "productionInitial": {
+    "result": "interrupted-test-locator",
+    "report": "production-initial-playwright-results.json",
+    "checks": "production-initial-checks.json",
+    "source": "tests/production-model.spec.ts",
+    "explanation": "Three real calculator generations all reached ready at attempt 0. The runner then waited for an accessible name equal to the visible text 再次使用, while generated buttons had contextual aria-label 将结果 42 填入数字A. The wait was interrupted. This was a test locator contract mismatch; it did not establish a product failure. No timer generation was sent in this run."
+  },
+  "productionContinuation": {
+    "result": "passed",
+    "passed": 1,
+    "report": "production-continuation-playwright-results.json",
+    "checks": "production-continuation-checks.json",
+    "sameAnonymousSession": true,
+    "sameCalculatorProject": true,
+    "newModelCalls": 1,
+    "explanation": "Continued the existing version 3 calculator in its own saved anonymous session without regenerating. Verified reuse, one Enter calculation record, invalid input history stability, displayed source, exact HTML export and online version restoration retaining current history. Then made the one remaining real timer generation and verified start/pause/reset/completion/reload persistence. Session-specific continuation script stays outside the repository; reusable public production test includes the corrected visible-text locator and these checks."
+  },
+  "paidCallsInProduction": {
+    "calculatorInitial": 1,
+    "calculatorFirstEdit": 1,
+    "calculatorSecondEdit": 1,
+    "timerInitial": 1,
+    "allReadyAttempt": 0
+  },
+  "assertionScope": [
+    "Production initial division-by-zero check monitored calc_history POST requests and verified zero writes, plus unchanged persisted history.",
+    "Production continuation empty-input check verified a visible Chinese error and unchanged persisted history; its emitted check name says without-history-write, but that continuation assertion did not separately count HTTP writes.",
+    "The reusable production test now monitors both division-by-zero and empty-input write requests. It was typechecked; the entire four-call test was not rerun after the locator fix, to avoid duplicating authorized paid calls.",
+    "Startup validation is not a proof of arbitrary generated-app correctness; these results cover the actual interactions and artifacts asserted.",
+    "No CPU-loop isolation or hostile-code security guarantee is implied."
+  ]
+}
