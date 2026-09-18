@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { summary, type Project, type RunEvent } from '../src/lib/types';
-import { beginGeneration, cancelRun, reportPreview, restoreVersion, runGeneration } from '../src/lib/server/engine';
+import { beginGeneration, cancelRun, emitSnapshot, reportPreview, restoreVersion, runGeneration } from '../src/lib/server/engine';
 import { newRun } from '../src/lib/server/lifecycle';
 import { generateArtifact } from '../src/lib/server/model';
 import { TODO_FIXTURE } from '../src/lib/server/fixture';
@@ -213,6 +213,90 @@ describe('generation engine concurrency', () => {
     expect(result.project.runs[0]).toMatchObject({ status: 'repairing', attempt: 1 });
     expect(result.repair).toEqual({ html: TODO_FIXTURE, errors: ['按钮初始化失败'] });
     expect(result.project.currentVersionId).toBe('baseline-version');
+  });
+
+  it('terminates repeated static failures after two repairs without replacing the working version or data', async () => {
+    const h = casRepository(), original = h.snapshot(), id = original.id;
+    const brokenHtml = '<!doctype html><html><head><title>Broken</title></head><body><script>const broken = ;</script></body></html>';
+    generate.mockResolvedValue({ ...modelResult, artifact: { ...modelResult.artifact, html: brokenHtml } });
+    const start = await beginGeneration(h.repo, id, { prompt: '增加功能并保留数据', requestId: randomUUID(), baseVersionId: original.currentVersionId });
+    const events: RunEvent[] = [];
+
+    // Exercise real parsing, the repair loop and persisted transitions. The model
+    // always returns invalid JavaScript, so a successful exit cannot hide a retry.
+    await runGeneration(h.repo, id, start.runId, event => events.push(event));
+
+    const failed = h.snapshot();
+    expect(generate).toHaveBeenCalledTimes(3); // Initial generation plus two repairs.
+    expect(generate.mock.calls[0][0].repairHtml).toBeUndefined();
+    for (const [input] of generate.mock.calls.slice(1)) {
+      expect(input.currentHtml).toBe(original.versions[0].html);
+      expect(input.repairHtml).toBe(brokenHtml);
+      expect(input.errors?.join(' ')).toContain('语法错误');
+    }
+    expect(failed.runs[0]).toMatchObject({ status: 'failed', attempt: 2, stagedState: {} });
+    expect(failed.runs[0].finishedAt).toBeTruthy();
+    expect(failed.runs[0].error).toContain('两次自动修复上限');
+    expect(failed.versions).toHaveLength(4);
+    expect(failed.versions.slice(1).every(version => version.status === 'failed')).toBe(true);
+    expect(failed.versions[0]).toEqual(original.versions[0]);
+    expect(failed.currentVersionId).toBe(original.currentVersionId);
+    expect(failed.appState).toEqual(original.appState);
+    expect(failed.dataRevision).toBe(original.dataRevision);
+    expect(events.filter(event => event.type === 'status').map(event => event.status))
+      .toEqual(['generating', 'validating', 'repairing', 'validating', 'repairing', 'validating']);
+    expect(events.some(event => event.type === 'candidate' || event.type === 'complete')).toBe(false);
+    expect(events.at(-1)).toMatchObject({ type: 'error', project: { currentVersionId: original.currentVersionId } });
+  });
+
+  it('ends a repeated preview-failure feedback loop after two repairs and rejects late promotion', async () => {
+    const h = casRepository(), original = h.snapshot(), id = original.id;
+    const start = await beginGeneration(h.repo, id, { prompt: '增加功能并保留数据', requestId: randomUUID(), baseVersionId: original.currentVersionId });
+    const events: RunEvent[] = [];
+    const emit = (event: RunEvent) => events.push(event);
+    await runGeneration(h.repo, id, start.runId, emit);
+
+    // Follow the validate route's actual dispatch contract for the first build
+    // and both repaired candidates, including untrusted staged writes each time.
+    for (const attempt of [0, 1, 2]) {
+      const preview = h.snapshot();
+      expect(preview.runs[0]).toMatchObject({ status: 'previewing', attempt });
+      const result = await reportPreview(h.repo, id, start.runId, {
+        versionId: preview.runs[0].candidateVersionId!, ok: false,
+        error: `Runtime initialization failed on candidate ${attempt}`,
+        stagedState: { notes: ['must not replace saved notes'], failed_candidate_probe: attempt },
+        expectedDataRevision: original.dataRevision,
+      });
+      expect(result.project.currentVersionId).toBe(original.currentVersionId);
+      expect(result.project.appState).toEqual(original.appState);
+      expect(result.project.dataRevision).toBe(original.dataRevision);
+      if (attempt < 2) {
+        expect(result.repair).toEqual({ html: TODO_FIXTURE, errors: [`Runtime initialization failed on candidate ${attempt}`] });
+        await runGeneration(h.repo, id, start.runId, emit, result.repair);
+      } else {
+        expect(result.repair).toBeUndefined();
+        emitSnapshot(result.project, start.runId, emit);
+      }
+    }
+
+    const failed = h.snapshot();
+    expect(generate).toHaveBeenCalledTimes(3);
+    expect(generate.mock.calls.slice(1).map(([input]) => input.errors))
+      .toEqual([['Runtime initialization failed on candidate 0'], ['Runtime initialization failed on candidate 1']]);
+    expect(failed.runs[0]).toMatchObject({ status: 'failed', attempt: 2, stagedState: {} });
+    expect(failed.runs[0].finishedAt).toBeTruthy();
+    expect(failed.versions).toHaveLength(4);
+    expect(failed.versions.slice(1).map(version => version.status)).toEqual(['failed', 'failed', 'failed']);
+    expect(failed.versions[0]).toEqual(original.versions[0]);
+    expect(events.filter(event => event.type === 'candidate')).toHaveLength(3);
+    expect(events.some(event => event.type === 'complete')).toBe(false);
+    expect(events.at(-1)).toMatchObject({ type: 'error', project: { currentVersionId: original.currentVersionId } });
+    await expect(reportPreview(h.repo, id, start.runId, {
+      versionId: failed.runs[0].candidateVersionId!, ok: true,
+      stagedState: { notes: ['late result must not publish'] }, expectedDataRevision: original.dataRevision,
+    })).rejects.toMatchObject({ status: 409, code: 'RUN_INACTIVE' });
+    expect(h.snapshot()).toEqual(failed);
+    expect(generate).toHaveBeenCalledTimes(3);
   });
 
   it('does not retry semantic 409 errors such as a stale data revision', async () => {

@@ -1,0 +1,57 @@
+{
+  "baseURL": "https://atoms-demo-indol.vercel.app",
+  "projectId": "022c5102-da8f-4c76-9afc-98dc5942977e",
+  "startedAt": "2026-09-18T15:45:36.277Z",
+  "checks": [
+    "two-pages-loaded-the-same-existing-calculator-and-revision",
+    "page-A-valid-calculation-saved-200",
+    "stale-page-B-received-real-409",
+    "409-does-not-overwrite-page-A-history",
+    "conflict-recovery-action-visible-in-output-panel",
+    "old-preview-write-rejected-locally-without-another-state-POST",
+    "conflict-alert-and-recovery-action-visible-at-390px",
+    "conflict-alert-and-recovery-action-visible-in-mobile-fullscreen",
+    "load-latest-performs-real-project-GET",
+    "load-latest-remounts-preview-with-page-A-history",
+    "no-automatic-replay-of-the-rejected-value",
+    "user-reapplies-B-calculation-after-reload-and-saves-200",
+    "subsequent-normal-calculation-saves-200",
+    "existing-generated-version-unchanged",
+    "no-model-or-other-project-mutations"
+  ],
+  "writes": [
+    {
+      "page": "A",
+      "status": 200,
+      "key": "calc_history",
+      "expectedDataRevision": 8
+    },
+    {
+      "page": "B",
+      "status": 409,
+      "key": "calc_history",
+      "expectedDataRevision": 8
+    },
+    {
+      "page": "B",
+      "status": 200,
+      "key": "calc_history",
+      "expectedDataRevision": 9
+    },
+    {
+      "page": "B",
+      "status": 200,
+      "key": "calc_history",
+      "expectedDataRevision": 10
+    }
+  ],
+  "preventedOtherMutations": [],
+  "modelRequests": 0,
+  "initialDataRevision": 8,
+  "initialHistoryCount": 2,
+  "frozenPreviewError": "Error: This preview is read-only while a generation or restore is in progress.",
+  "finalDataRevision": 11,
+  "finalHistoryCount": 5,
+  "result": "passed",
+  "finishedAt": "2026-09-18T15:46:54.278Z"
+}

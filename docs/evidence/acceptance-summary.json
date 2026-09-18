@@ -58,5 +58,33 @@
     "The reusable production test now monitors both division-by-zero and empty-input write requests. It was typechecked; the entire four-call test was not rerun after the locator fix, to avoid duplicating authorized paid calls.",
     "Startup validation is not a proof of arbitrary generated-app correctness; these results cover the actual interactions and artifacts asserted.",
     "No CPU-loop isolation or hostile-code security guarantee is implied."
-  ]
+  ],
+  "productionConflictRecovery": {
+    "result": "passed",
+    "passed": 1,
+    "report": "production-conflict-checks.json",
+    "newModelCalls": 0,
+    "savedHistoryCounts": [
+      2,
+      5
+    ],
+    "writeStatusSequence": [
+      200,
+      409,
+      200,
+      200
+    ]
+  },
+  "repairExhaustion": {
+    "source": "tests/engine.test.ts",
+    "newTests": 2,
+    "unitTestsTotal": 84,
+    "modelAdapter": "deterministic mock, no network calls",
+    "checks": [
+      "static validation failure terminates after initial call plus two repairs",
+      "runtime candidate failure feedback loop terminates after two repairs",
+      "working code and app data retained",
+      "late success callback rejected"
+    ]
+  }
 }

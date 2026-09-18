@@ -1,0 +1,16 @@
+{
+  "githubWithoutAuthentication": {
+    "http": 200,
+    "private": false,
+    "visibility": "public",
+    "defaultBranch": "main",
+    "url": "https://github.com/Alison-Lyun/atoms-demo"
+  },
+  "demoWithoutAuthentication": {
+    "http": 200,
+    "workspaceTitlePresent": true,
+    "modelConfigured": true,
+    "fixturesEnabled": false,
+    "storageMode": "supabase"
+  }
+}
